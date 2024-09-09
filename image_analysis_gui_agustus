@@ -1,0 +1,125 @@
+function image_analysis_gui
+   % Buat figure utama dengan warna latar belakang
+   hFig = figure('Name', 'Analisis Citra', 'NumberTitle', 'off', ...
+                 'Position', [100, 100, 1000, 600], 'MenuBar', 'none', ...
+                 'Resize', 'off', 'Color', [0.9, 0.9, 0.9]);
+   
+   % Buat axes untuk menampilkan gambar dengan batas dan warna latar belakang
+   hAxes1 = axes('Parent', hFig, 'Position', [0.05, 0.25, 0.3, 0.4], ...
+                 'Color', [1, 1, 1], 'Box', 'on');
+   hAxes2 = axes('Parent', hFig, 'Position', [0.4, 0.55, 0.3, 0.4], ...
+                 'Color', [1, 1, 1], 'Box', 'on');
+   hAxes3 = axes('Parent', hFig, 'Position', [0.4, 0.05, 0.3, 0.4], ...
+                 'Color', [1, 1, 1], 'Box', 'on');
+   
+   % Buat tombol untuk memuat gambar dengan desain yang lebih menarik
+   uicontrol('Style', 'pushbutton', 'String', 'Ambil Gambar', ...
+             'Position', [50, 520, 150, 40], 'Callback', @loadImage, ...
+             'BackgroundColor', [0.5, 0.7, 0.9], 'FontSize', 12);
+   
+   % Buat tombol untuk menerapkan peregangan kontras
+   uicontrol('Style', 'pushbutton', 'String', 'Contrast Stretching', ...
+             'Position', [50, 470, 150, 40], 'Callback', @applyContrastStretching, ...
+             'BackgroundColor', [0.7, 0.9, 0.5], 'FontSize', 12);
+   
+   % Buat tombol untuk menerapkan equalasi histogram
+   uicontrol('Style', 'pushbutton', 'String', 'Histogram Equalization', ...
+             'Position', [50, 420, 170, 40], 'Callback', @applyHistogramEqualization, ...
+             'BackgroundColor', [0.9, 0.7, 0.5], 'FontSize', 12);
+
+   % Buat label untuk MSE dan PSNR untuk Peregangan Kontras
+   uicontrol('Style', 'text', 'String', 'MSE:', 'Position', [720, 460, 60, 25], ...
+             'BackgroundColor', [0.9, 0.9, 0.9], 'FontSize', 10);
+   hMSE_CS = uicontrol('Style', 'text', 'Position', [790, 460, 100, 25], ...
+                      'String', '', 'BackgroundColor', [1, 1, 1], 'FontSize', 12);
+
+   uicontrol('Style', 'text', 'String', 'PSNR:', 'Position', [720, 430, 60, 25], ...
+             'BackgroundColor', [0.9, 0.9, 0.9], 'FontSize', 10);
+   hPSNR_CS = uicontrol('Style', 'text', 'Position', [790, 430, 100, 25], ...
+                        'String', '', 'BackgroundColor', [1, 1, 1], 'FontSize', 12);
+
+   % Buat label untuk MSE dan PSNR untuk Equalasi Histogram
+   uicontrol('Style', 'text', 'String', 'MSE:', 'Position', [720, 120, 60, 25], ...
+             'BackgroundColor', [0.9, 0.9, 0.9], 'FontSize', 10);
+   hMSE_HE = uicontrol('Style', 'text', 'Position', [790, 120, 100, 25], ...
+                      'String', '', 'BackgroundColor', [1, 1, 1], 'FontSize', 12);
+
+   uicontrol('Style', 'text', 'String', 'PSNR:', 'Position', [720, 90, 60, 25], ...
+             'BackgroundColor', [0.9, 0.9, 0.9], 'FontSize', 10);
+   hPSNR_HE = uicontrol('Style', 'text', 'Position', [790, 90, 100, 25], ...
+                        'String', '', 'BackgroundColor', [1, 1, 1], 'FontSize', 12);
+   
+   % Buat checkbox untuk konversi RGB ke Grayscale
+   hCheckbox = uicontrol('Style', 'checkbox', 'String', 'RGB ke Greyscale', ...
+                         'Position', [50, 100, 150, 30], 'BackgroundColor', [0.9, 0.9, 0.9], ...
+                         'FontSize', 12);
+
+   % Variabel untuk menyimpan gambar asli dan gambar yang diproses
+   originalImage = [];
+   processedImage_CS = [];
+   processedImage_HE = [];
+   
+   % Fungsi callback untuk memuat gambar
+   function loadImage(~, ~)
+       [filename, pathname] = uigetfile({'*.jpg;*.png;*.bmp', 'File Gambar'});
+       if isequal(filename, 0)
+           return;
+       end
+       originalImage = imread(fullfile(pathname, filename));
+       imshow(originalImage, 'Parent', hAxes1);
+       title(hAxes1, 'Gambar Asli', 'FontSize', 14, 'FontWeight', 'bold');
+   end
+   
+   % Fungsi callback untuk menerapkan peregangan kontras
+   function applyContrastStretching(~, ~)
+       if isempty(originalImage)
+           errordlg('Ambil gambar terlebih dahulu.');
+           return;
+       end
+       img = originalImage;
+       if get(hCheckbox, 'Value')
+           img = rgb2gray(img);
+       end
+       c = double(min(img(:)));
+       d = double(max(img(:)));
+       L = 256; % Untuk gambar grayscale 8-bit
+       processedImage_CS = im2double(img);
+       processedImage_CS = (processedImage_CS - c) / (d - c) * (L - 1);
+       processedImage_CS = uint8(processedImage_CS * (L - 1));
+       imshow(processedImage_CS, 'Parent', hAxes2);
+       title(hAxes2, 'Contrast Stretching', 'FontSize', 14, 'FontWeight', 'bold');
+       [mse, psnr] = calculateMSE_PSNR(img, processedImage_CS);
+       set(hMSE_CS, 'String', num2str(mse));
+       set(hPSNR_CS, 'String', num2str(psnr));
+   end
+   
+   % Fungsi callback untuk menerapkan equalasi histogram
+   function applyHistogramEqualization(~, ~)
+       if isempty(originalImage)
+           errordlg('Ambil gambar terlebih dahulu.');
+           return;
+       end
+       img = originalImage;
+       if get(hCheckbox, 'Value')
+           img = rgb2gray(img);
+       end
+       processedImage_HE = histeq(img, 256);
+       imshow(processedImage_HE, 'Parent', hAxes3);
+       title(hAxes3, 'Histogram Equalization', 'FontSize', 14, 'FontWeight', 'bold');
+       [mse, psnr] = calculateMSE_PSNR(img, processedImage_HE);
+       set(hMSE_HE, 'String', num2str(mse));
+       set(hPSNR_HE, 'String', num2str(psnr));
+   end
+   
+   % Fungsi untuk menghitung MSE dan PSNR
+   function [mse, psnr] = calculateMSE_PSNR(original, processed)
+       original = double(original);
+       processed = double(processed);
+       mse = mean((original(:) - processed(:)).^2);
+       if mse == 0
+           psnr = Inf;
+       else
+           psnr = 10 * log10(255^2 / mse);
+       end
+   end
+end
